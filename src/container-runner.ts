@@ -281,7 +281,7 @@ Only suggest follow-ups when they genuinely add value. Do not suggest them for s
   fs.mkdirSync(logsDir, { recursive: true });
 
   return new Promise((resolve) => {
-    const container = spawn('container', containerArgs, {
+    const container = spawn(CONTAINER.EXECUTABLE, containerArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

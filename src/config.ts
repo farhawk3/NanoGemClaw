@@ -110,7 +110,7 @@ function escapeRegex(str: string): string {
 }
 
 export const TRIGGER_PATTERN = new RegExp(
-  `^@${escapeRegex(ASSISTANT_NAME)}\\b`,
+  `^@${escapeRegex(ASSISTANT_NAME)}(?:\\b|_)`,
   'i',
 );
 
@@ -192,6 +192,8 @@ export const CONTAINER = {
   IPC_DEBOUNCE_MS: 100,
   /** Fallback polling multiplier (use polling_interval * this) */
   IPC_FALLBACK_POLLING_MULTIPLIER: 5,
+  /** Container executable name or path */
+  EXECUTABLE: process.env.CONTAINER_EXECUTABLE || 'container',
 } as const;
 
 /**
