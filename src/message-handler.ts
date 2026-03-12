@@ -73,10 +73,27 @@ export async function processMessage(msg: Message): Promise<void> {
   // Handle admin commands (main group or admin private chat)
   const { isAdminGroup } = await import('./admin-auth.js');
   const isAdminChat = isAdminGroup(group.folder);
-  if ((isMainGroup || isAdminChat) && content.startsWith('/admin')) {
-    const parts = content.slice(7).trim().split(/\s+/);
+  
+  logger.info({ folder: group.folder, isMainGroup, isAdminChat, contentSnapshot: content.slice(0, 20) }, 'Admin routing debug');
+
+  const trimmedContent = content.trim();
+  const startsWithAdmin = trimmedContent.startsWith('/admin');
+  
+  logger.info({ trimmedContent, startsWithAdmin }, 'Admin content check');
+
+  if ((isMainGroup || isAdminChat) && startsWithAdmin) {
+    // Quote-aware argument parsing
+    const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
+    const parts: string[] = [];
+    let match;
+    while ((match = regex.exec(trimmedContent.slice(7).trim())) !== null) {
+      parts.push(match[1] || match[2] || match[0]);
+    }
+
     const adminCmd = parts[0] || 'help';
     const adminArgs = parts.slice(1);
+    
+    logger.info({ adminCmd, adminArgs, chatId }, 'Admin command detected');
 
     try {
       const response = await handleAdminCommand(adminCmd, adminArgs);
@@ -112,16 +129,23 @@ export async function processMessage(msg: Message): Promise<void> {
   );
   const needsTrigger =
     !isMainGroup && !isAdminChat && group.requireTrigger !== false;
+  const matchesTrigger = TRIGGER_PATTERN.test(content);
+  
+  logger.info({ needsTrigger, isBotCommand, isMedia, matchesTrigger, TRIGGER_PATTERN: TRIGGER_PATTERN.source }, 'Trigger check debug');
+
   if (
     needsTrigger &&
     !isBotCommand &&
     !isMedia &&
-    !TRIGGER_PATTERN.test(content)
-  )
+    !matchesTrigger
+  ) {
+    logger.info({ content: content.slice(0, 50) }, 'Message ignored: trigger required but not found');
     return;
-
+  }
+  
   // Onboarding check for new groups (before processing first message)
   const isCommand = content.startsWith('/');
+  logger.info({ chatId, isCommand }, 'Continuing to rate limit/onboarding');
   if (!isCommand && !isAdminChat) {
     const { checkAndStartOnboarding } = await import('./onboarding.js');
     const triggered = await checkAndStartOnboarding(
@@ -186,6 +210,7 @@ export async function processMessage(msg: Message): Promise<void> {
 
   const groupLang = getGroupLang(group.folder);
 
+  logger.info({ chatId, media: !!mediaInfo }, 'Sending status message');
   // Send status message for processing requests
   statusMsg = await bot.api.sendMessage(
     chatId,
@@ -195,6 +220,7 @@ export async function processMessage(msg: Message): Promise<void> {
       ...(threadIdNum ? { message_thread_id: threadIdNum } : {}),
     },
   );
+  logger.info({ chatId, statusMsgId: statusMsg.message_id }, 'Status message sent');
 
   if (mediaInfo) {
     await editMessageText(
@@ -338,7 +364,11 @@ export async function processMessage(msg: Message): Promise<void> {
 
   // Run plugin beforeMessage hooks
   try {
-    const pluginLoaderPath = '../app/src/plugin-loader.js';
+    const isProd = import.meta.url.includes('/dist/');
+    const pluginLoaderPath = new URL(
+      isProd ? '../app/dist/plugin-loader.js' : '../app/src/plugin-loader.js',
+      import.meta.url,
+    ).href;
     const { runBeforeMessageHooks } = await import(pluginLoaderPath);
     const beforeResult = await runBeforeMessageHooks(hookContext);
     if (
@@ -356,6 +386,7 @@ export async function processMessage(msg: Message): Promise<void> {
   }
 
   try {
+    logger.info({ chatId, group: group.name }, 'Running agent...');
     const response = await runAgent(
       group,
       prompt,
@@ -364,6 +395,7 @@ export async function processMessage(msg: Message): Promise<void> {
       statusMsg,
       messageThreadId,
     );
+    logger.info({ chatId, hasResponse: !!response }, 'Agent execution completed');
 
     // Skip container output if agent already sent response via IPC
     const ipcAlreadySent = ipcMessageSentChats.has(chatId);
@@ -434,7 +466,7 @@ export async function processMessage(msg: Message): Promise<void> {
 
       // Run plugin afterMessage hooks (fire-and-forget)
       try {
-        const pluginLoaderPath = '../app/src/plugin-loader.js';
+        const pluginLoaderPath = new URL('./plugin-loader.js', import.meta.url).href;
         import(pluginLoaderPath).then(({ runAfterMessageHooks }) =>
           runAfterMessageHooks({ ...hookContext, reply: cleanText }).catch(
             () => {},
@@ -447,7 +479,7 @@ export async function processMessage(msg: Message): Promise<void> {
     } else if (statusMsg) {
       // Run plugin onMessageError hooks
       try {
-        const pluginLoaderPath = '../app/src/plugin-loader.js';
+        const pluginLoaderPath = new URL('./plugin-loader.js', import.meta.url).href;
         import(pluginLoaderPath).then(({ runOnMessageErrorHooks }) =>
           runOnMessageErrorHooks({
             ...hookContext,

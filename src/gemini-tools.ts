@@ -672,7 +672,11 @@ export async function executeFunctionCall(
     isMain: context.isMain,
   };
   {
-    const pluginLoaderPath = '../app/src/plugin-loader.js';
+    const isProd = import.meta.url.includes('/dist/');
+    const pluginLoaderPath = new URL(
+      isProd ? '../app/dist/plugin-loader.js' : '../app/src/plugin-loader.js',
+      import.meta.url,
+    ).href;
     const { runBeforeToolCallHooks } = await import(pluginLoaderPath);
     const blockResult = await runBeforeToolCallHooks(hookCtx);
     if (blockResult) {
@@ -1301,7 +1305,11 @@ export async function executeFunctionCall(
         }
 
         default: {
-          const pluginLoaderPath = '../app/src/plugin-loader.js';
+          const isProd = import.meta.url.includes('/dist/');
+          const pluginLoaderPath = new URL(
+            isProd ? '../app/dist/plugin-loader.js' : '../app/src/plugin-loader.js',
+            import.meta.url,
+          ).href;
           const { dispatchPluginToolCall } = await import(pluginLoaderPath);
           const pluginResult = await dispatchPluginToolCall(name, args, {
             groupFolder,
@@ -1371,7 +1379,11 @@ export async function executeFunctionCall(
 
   // Run afterToolCall hooks (skipped if beforeToolCall blocked above)
   {
-    const pluginLoaderPath = '../app/src/plugin-loader.js';
+    const isProd = import.meta.url.includes('/dist/');
+    const pluginLoaderPath = new URL(
+      isProd ? '../app/dist/plugin-loader.js' : '../app/src/plugin-loader.js',
+      import.meta.url,
+    ).href;
     const { runAfterToolCallHooks } = await import(pluginLoaderPath);
     const afterCtx = {
       ...hookCtx,
