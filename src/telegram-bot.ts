@@ -671,6 +671,7 @@ export async function connectTelegram(): Promise<void> {
 
   // Start polling — do NOT await (resolves only when bot.stop() is called)
   bot.start({
+    allowed_updates: ['message', 'callback_query', 'my_chat_member'],
     onStart: (botInfo) => {
       logger.info({ username: botInfo.username }, 'Bot polling started');
     },

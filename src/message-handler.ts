@@ -45,7 +45,12 @@ export async function processMessage(msg: Message): Promise<void> {
   const chatId = msg.chat.id.toString();
   const registeredGroups = getRegisteredGroups();
   const group = registeredGroups[chatId];
-  if (!group) return;
+
+  const isRegisterCommand = msg.text === '/register' || msg.caption === '/register';
+
+  if (!group && !isRegisterCommand) {
+     return; // Ignore all other messages from unregistered groups
+  }
 
   const bot = getBot();
 
@@ -54,7 +59,7 @@ export async function processMessage(msg: Message): Promise<void> {
   const threadIdStr = messageThreadId?.toString();
 
   // Maintenance mode: auto-reply and skip processing
-  if (isMaintenanceMode()) {
+  if (group && isMaintenanceMode()) {
     const { tf: i18nTf, getGroupLang: i18nGetGroupLang } =
       await import('./i18n/index.js');
     await bot.api.sendMessage(
@@ -67,13 +72,12 @@ export async function processMessage(msg: Message): Promise<void> {
 
   // Extract content (text or caption)
   let content = msg.text || msg.caption || '';
-  const isMainGroup =
-    group.folder === (await import('./config.js')).MAIN_GROUP_FOLDER;
+  const isMainGroup = group ? group.folder === (await import('./config.js')).MAIN_GROUP_FOLDER : false;
+  const { isAdminGroup } = await import('./admin-auth.js');
+  const isAdminChat = group ? isAdminGroup(group.folder) : false;
 
   // Handle admin commands (main group or admin private chat)
-  const { isAdminGroup } = await import('./admin-auth.js');
-  const isAdminChat = isAdminGroup(group.folder);
-  if ((isMainGroup || isAdminChat) && content.startsWith('/admin')) {
+  if (group && (isMainGroup || isAdminChat) && content.startsWith('/admin')) {
     const parts = content.slice(7).trim().split(/\s+/);
     const adminCmd = parts[0] || 'help';
     const adminArgs = parts.slice(1);
@@ -92,37 +96,22 @@ export async function processMessage(msg: Message): Promise<void> {
     return;
   }
 
-  // Check if trigger prefix is required (main group always responds; others check requireTrigger setting)
-  // Slash commands directed at this bot (e.g. /start@BotName) bypass trigger check
+  // Check if trigger prefix is required
   const botCommandPattern = new RegExp(`^/\\w+@${ASSISTANT_NAME}\\b`, 'i');
   const isBotCommand = botCommandPattern.test(content);
   if (isBotCommand) {
-    // Strip @BotName suffix so commands work uniformly (e.g. /start@Bot → /start)
-    content = content
-      .replace(new RegExp(`@${ASSISTANT_NAME}\\b`, 'i'), '')
-      .trim();
+    content = content.replace(new RegExp(`@${ASSISTANT_NAME}\\b`, 'i'), '').trim();
   }
-  // Media messages (photo, voice, video, document) bypass trigger check — high-intent interaction
-  const isMedia = !!(
-    msg.photo ||
-    msg.voice ||
-    msg.audio ||
-    msg.video ||
-    msg.document
-  );
-  const needsTrigger =
-    !isMainGroup && !isAdminChat && group.requireTrigger !== false;
-  if (
-    needsTrigger &&
-    !isBotCommand &&
-    !isMedia &&
-    !TRIGGER_PATTERN.test(content)
-  )
-    return;
 
-  // Onboarding check for new groups (before processing first message)
+  const isMedia = !!(msg.photo || msg.voice || msg.audio || msg.video || msg.document);
+  const needsTrigger = group && !isMainGroup && !isAdminChat && group.requireTrigger !== false;
+  if (group && needsTrigger && !isBotCommand && !isMedia && !TRIGGER_PATTERN.test(content)) {
+    return;
+  }
+
+  // Onboarding check for new groups
   const isCommand = content.startsWith('/');
-  if (!isCommand && !isAdminChat) {
+  if (group && !isCommand && !isAdminChat) {
     const { checkAndStartOnboarding } = await import('./onboarding.js');
     const triggered = await checkAndStartOnboarding(
       chatId,
@@ -130,7 +119,7 @@ export async function processMessage(msg: Message): Promise<void> {
       group.name,
       threadIdNum,
     );
-    if (triggered) return; // Don't process the first message, show onboarding instead
+    if (triggered) return;
   }
 
   // Handle /register command (public)
