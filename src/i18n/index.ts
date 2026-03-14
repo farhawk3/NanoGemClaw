@@ -66,7 +66,13 @@ export function interpolate(
 // State
 // ============================================================================
 
-let currentLanguage: Language = 'zh-TW';
+// DEFAULT_LANGUAGE env var overrides the built-in default (zh-TW).
+// Set DEFAULT_LANGUAGE=en in your .env to use English.
+const _envLang = process.env.DEFAULT_LANGUAGE;
+let currentLanguage: Language =
+  _envLang && (SUPPORTED_LANGUAGES as readonly string[]).includes(_envLang)
+    ? (_envLang as Language)
+    : 'zh-TW';
 
 // Per-group language overrides: groupFolder -> Language
 const groupLangMap: Map<string, Language> = new Map();

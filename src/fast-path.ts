@@ -284,8 +284,8 @@ You are in direct conversation mode. IMPORTANT RULES:
 4. If the user asks a QUESTION, respond with TEXT only — do NOT call functions
 5. NEVER schedule tasks, generate images, or change preferences based on conversation history
 6. When in doubt, respond with text instead of calling a function
-7. For task-related questions (有幾個/有哪些/列出/查看 tasks), you may call list_tasks to gather info, but NEVER call cancel_task/pause_task/resume_task — those are destructive actions
-8. NEVER call cancel_task, pause_task, or resume_task UNLESS the user's current message contains an explicit action verb like 取消/刪除/暫停/恢復/停止`;
+7. For task-related questions (how many/which/list/view tasks), you may call list_tasks to gather info, but NEVER call cancel_task/pause_task/resume_task — those are destructive actions
+8. NEVER call cancel_task, pause_task, or resume_task UNLESS the user's current message contains an explicit action verb like cancel/delete/pause/resume/stop`;
     }
 
     // Fetch query-relevant knowledge (NOT cached — varies per query)
@@ -330,6 +330,11 @@ You are in direct conversation mode. IMPORTANT RULES:
       /已經將.*時區.*設定為/,
       /已經.*設定了.*任務/,
       /重新設定了.*任務/,
+      /Preference updated:/,
+      /Scheduled task created/,
+      /Task paused/,
+      /Task resumed/,
+      /Task cancelled/,
       /Generated:/,
     ];
 
@@ -843,17 +848,17 @@ function summarizeFunctionResult(result: FunctionCallResult): string {
 
   switch (name) {
     case 'schedule_task':
-      return `✅ 定時任務已建立 (ID: ${response.task_id})`;
+      return `✅ Scheduled task created (ID: ${response.task_id})`;
     case 'pause_task':
-      return `⏸️ 任務已暫停 (ID: ${response.task_id})`;
+      return `⏸️ Task paused (ID: ${response.task_id})`;
     case 'resume_task':
-      return `▶️ 任務已恢復 (ID: ${response.task_id})`;
+      return `▶️ Task resumed (ID: ${response.task_id})`;
     case 'cancel_task':
-      return `🗑️ 任務已取消 (ID: ${response.task_id})`;
+      return `🗑️ Task cancelled (ID: ${response.task_id})`;
     case 'generate_image':
       return ''; // Image already sent via bot.sendPhoto
     case 'set_preference':
-      return `✅ 偏好已更新: ${response.key}`;
+      return `✅ Preference updated: ${response.key}`;
     case 'register_group':
       return `✅ 群組已註冊 (ID: ${response.chat_id})`;
     case 'remember_fact':

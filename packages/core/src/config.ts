@@ -117,7 +117,7 @@ export function createConfig(
       maxRequests: env.RATE_LIMIT_MAX ?? 20,
       windowMinutes: env.RATE_LIMIT_WINDOW ?? 5,
       enabled: env.RATE_LIMIT_ENABLED ?? true,
-      message: '⏳ 請求過於頻繁，請稍後再試。',
+      message: process.env.RATE_LIMIT_MESSAGE ?? '⏳ 請求過於頻繁，請稍後再試。',
     },
     container: {
       gracefulShutdownDelayMs: 5000,
@@ -269,7 +269,7 @@ export const RATE_LIMIT = {
   MAX_REQUESTS: _singletonEnv?.RATE_LIMIT_MAX ?? 20,
   WINDOW_MINUTES: _singletonEnv?.RATE_LIMIT_WINDOW ?? 5,
   ENABLED: _singletonEnv?.RATE_LIMIT_ENABLED ?? true,
-  MESSAGE: '⏳ 請求過於頻繁，請稍後再試。',
+  MESSAGE: process.env.RATE_LIMIT_MESSAGE ?? '⏳ 請求過於頻繁，請稍後再試。',
 } as const;
 
 export const CONTAINER = {

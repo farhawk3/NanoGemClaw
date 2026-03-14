@@ -84,8 +84,8 @@ async function transcribeWithGCP(audioPath: string): Promise<string> {
       config: {
         encoding: 'LINEAR16' as const,
         sampleRateHertz: 16000,
-        languageCode: 'zh-TW',
-        alternativeLanguageCodes: ['en-US', 'ja-JP'],
+        languageCode: process.env.DEFAULT_LANGUAGE || 'zh-TW',
+        alternativeLanguageCodes: ['en-US', 'zh-TW', 'ja-JP'],
       },
       audio: {
         content: audioBytes,

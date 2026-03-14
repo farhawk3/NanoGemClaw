@@ -129,7 +129,8 @@ async function runTask(
 
     // Enrich prompt with current time so Gemini doesn't need to call bash
     const now = new Date();
-    const timeStr = now.toLocaleString('zh-TW', {
+    const { getLanguage } = await import('./i18n/index.js');
+    const timeStr = now.toLocaleString(getLanguage(), {
       timeZone: TIMEZONE,
       dateStyle: 'full',
       timeStyle: 'medium',
