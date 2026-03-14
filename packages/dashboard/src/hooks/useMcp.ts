@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch, useApiQuery } from './useApi';
 
 export interface McpTool {
@@ -35,7 +35,16 @@ export interface AddMcpServerPayload {
 export function useMcp() {
     const { data, isLoading, error, refetch } = useApiQuery<McpServer[]>('/api/mcp/servers');
 
-    const servers = data ?? [];
+    // Maintain referential stability to prevent UI dropdown collapse on poll
+    const [servers, setServers] = useState<McpServer[]>([]);
+
+    useEffect(() => {
+        setServers(prev => {
+            const next = data ?? [];
+            if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+            return next;
+        });
+    }, [data]);
 
     const addServer = useCallback(async (payload: AddMcpServerPayload) => {
         await apiFetch('/api/mcp/servers', {
