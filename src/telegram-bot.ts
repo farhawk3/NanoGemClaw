@@ -99,6 +99,53 @@ export async function connectTelegram(): Promise<void> {
     }
   });
 
+  // Handle bot added/removed from groups (Proactive Registration)
+  bot.on('my_chat_member', async (ctx) => {
+    const chatId = ctx.chat.id.toString();
+    if (!ctx.myChatMember) return;
+    const newStatus = ctx.myChatMember.new_chat_member.status;
+    const oldStatus = ctx.myChatMember.old_chat_member.status;
+
+    // Handle bot being added or promoted/demoted
+    if (newStatus === 'member' || newStatus === 'administrator') {
+      const { tf } = await import('./i18n/index.js');
+      // Only send greeting if we actually just joined (or transitioning from restricted to normal)
+      if (oldStatus === 'left' || oldStatus === 'kicked') {
+        logger.info({ chatId, status: newStatus }, 'Bot added to new group');
+
+        if (newStatus === 'administrator') {
+          await sendMessage(
+            chatId,
+            `👋 Hi! I'm ready to help. Type \`/register\` to request activation in this group.\n\n*By default, you can talk to me by mentioning my exact username (@${ASSISTANT_NAME}). If you'd like me to respond to my simple name, you can configure this in the NanoGemClaw Web Dashboard.*`
+          );
+        } else {
+          await sendMessage(
+            chatId,
+            `👋 Hi! Thanks for adding me. To function properly and read group context, I must be an Administrator.\n\nPlease promote me to Administrator (I only need the "Delete Messages" privilege to work), and then type \`/register\` to request activation.`
+          );
+        }
+      } else if (oldStatus === 'member' && newStatus === 'administrator') {
+         // Bot was promoted
+         await sendMessage(
+            chatId,
+            `✅ Thanks for promoting me to Administrator! I can now read messages. Please type \`/register\` whenever you are ready to request activation.`
+         );
+      }
+    }
+
+    // Handle bot being removed/kicked
+    if (newStatus === 'left' || newStatus === 'kicked') {
+      logger.info({ chatId }, 'Bot removed from group');
+      const registeredGroups = getRegisteredGroups();
+      const group = registeredGroups[chatId];
+      if (group) {
+        // Auto-unregister to clean up scheduled tasks and memory facts
+        const { unregisterGroup } = await import('./group-manager.js');
+        unregisterGroup(group.folder);
+      }
+    }
+  });
+
   // Handle incoming messages
   bot.on('message', async (ctx) => {
     const msg = ctx.message!;
@@ -396,6 +443,45 @@ export async function connectTelegram(): Promise<void> {
       const [action, ...params] = data.split(':');
 
       switch (action) {
+        case 'admin_reject': {
+          const targetChatId = params[0];
+          if (!targetChatId) break;
+          await sendMessage(chatId, `❌ Rejected registration request.`, query.message?.message_thread_id);
+          await sendMessage(targetChatId, `❌ The bot owner declined the registration request.`);
+          if (query.message) {
+            await bot.api.editMessageReplyMarkup(chatId, query.message.message_id, { reply_markup: undefined }).catch(() => {});
+          }
+          break;
+        }
+        case 'admin_approve': {
+          const targetChatId = params[0];
+          if (!targetChatId) break;
+          
+          let targetChatName = 'Unknown Group';
+          try {
+             const chatInfo = await bot.api.getChat(targetChatId);
+             targetChatName = chatInfo.type === 'private' ? (chatInfo.first_name || 'Private Chat') : (chatInfo.title || 'Group');
+          } catch (e) {
+             logger.warn({ targetChatId }, 'Could not fetch chat info during approval');
+          }
+
+          const folderName = `chat_${targetChatId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+          registerGroup(targetChatId, {
+            name: targetChatName,
+            folder: folderName,
+            trigger: ASSISTANT_NAME,
+            added_at: new Date().toISOString(),
+            requireTrigger: true
+          });
+          
+          await sendMessage(chatId, `✅ Approved and registered group \`${targetChatName}\`.`, query.message?.message_thread_id);
+          await sendMessage(targetChatId, `✅ Registration complete! I am now monitoring and ready to assist.`);
+          
+          if (query.message) {
+            await bot.api.editMessageReplyMarkup(chatId, query.message.message_id, { reply_markup: undefined }).catch(() => {});
+          }
+          break;
+        }
         case 'suggest': {
           const suggestionText = getSuggestion(data);
           if (suggestionText) {

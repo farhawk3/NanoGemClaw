@@ -133,6 +133,65 @@ export async function processMessage(msg: Message): Promise<void> {
     if (triggered) return; // Don't process the first message, show onboarding instead
   }
 
+  // Handle /register command (public)
+  if (content === '/register' && !isMainGroup && !isAdminChat) {
+    try {
+      const { getAdminUserId } = await import('./admin-auth.js');
+      const { ADMIN_PRIVATE_FOLDER } = await import('./config.js');
+
+      // Check if user is a Telegram Group Admin
+      let isCallerAdmin = false;
+      if (msg.chat.type === 'private') {
+        isCallerAdmin = true; // DMs are always their own admin
+      } else {
+        const chatAdmins = await bot.api.getChatAdministrators(chatId);
+        isCallerAdmin = chatAdmins.some((a) => a.user.id.toString() === msg.from?.id.toString());
+      }
+
+      if (!isCallerAdmin) {
+        await sendMessage(chatId, `❌ Only group administrators can register this bot.`, threadIdNum);
+        return;
+      }
+
+      // Find the bot owner (super admin) chat ID
+      const adminUserId = getAdminUserId();
+      let adminChatId = adminUserId;
+
+      if (!adminChatId) {
+         // Fallback: finding the _admin_private folder group
+         const registered = getRegisteredGroups();
+         const adminGroupEntry = Object.entries(registered).find(([, g]) => g.folder === ADMIN_PRIVATE_FOLDER);
+         if (adminGroupEntry) adminChatId = adminGroupEntry[0];
+      }
+
+      if (!adminChatId) {
+        await sendMessage(chatId, `❌ Cannot process registration. No Bot Admin is configured yet.`, threadIdNum);
+        return;
+      }
+
+      // Send to Admin for Approval
+      const chatName = msg.chat.type === 'private' ? (msg.chat.first_name || 'Private Chat') : (msg.chat.title || 'Unknown Group');
+      const senderInfo = msg.from?.username ? `@${msg.from.username}` : `${msg.from?.first_name}`;
+      await sendMessageWithButtons(
+        adminChatId,
+        `🔔 **New Registration Request**\n\n**Group:** ${chatName}\n**Requested by:** ${senderInfo}\n**Chat ID:** ${chatId}`,
+        [
+          [
+            { text: '✅ Approve', callbackData: `admin_approve:${chatId}` },
+            { text: '❌ Reject', callbackData: `admin_reject:${chatId}` },
+          ]
+        ]
+      );
+
+      // Reply to group
+      await sendMessage(chatId, `⏳ Registration request sent to the bot owner. I will notify you once approved.`, threadIdNum);
+    } catch (err) {
+      logger.error({ err, chatId }, 'Error handling /register command');
+      await sendMessage(chatId, `❌ Failed to process registration request.`, threadIdNum);
+    }
+    return;
+  }
+
   // Rate limiting check
   const { checkRateLimit } = await import('./db.js');
   const { RATE_LIMIT } = await import('./config.js');
