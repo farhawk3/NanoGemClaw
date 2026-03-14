@@ -441,7 +441,7 @@ export function McpPage() {
             </div>
 
             {/* Server list */}
-            {isLoading ? (
+            {isLoading && servers.length === 0 ? (
                 <div className="flex items-center justify-center py-12 text-slate-500 gap-2">
                     <Loader2 className="animate-spin" size={20} /> Loading servers...
                 </div>
