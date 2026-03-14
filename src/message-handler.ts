@@ -46,7 +46,7 @@ export async function processMessage(msg: Message): Promise<void> {
   const registeredGroups = getRegisteredGroups();
   const group = registeredGroups[chatId];
 
-  const isRegisterCommand = msg.text === '/register' || msg.caption === '/register';
+  const isRegisterCommand = (msg.text && msg.text.startsWith('/register')) || (msg.caption && msg.caption.startsWith('/register'));
 
   if (!group && !isRegisterCommand) {
      return; // Ignore all other messages from unregistered groups

@@ -62,6 +62,11 @@ async function main(): Promise<void> {
   initKnowledgeIndex(dbInstance);
 
   await loadState();
+
+  // Run one-time ID-based folder migration
+  const { migrateGroupFoldersToChatId } = await import('./group-manager.js');
+  migrateGroupFoldersToChatId(dbInstance);
+
   ensureGroupDefaults();
   // Migrate enableFastPath → preferredPath (one-time startup migration)
   {
@@ -287,6 +292,7 @@ async function main(): Promise<void> {
           status,
           messageCount: chatId ? messageCounts.get(chatId) || 0 : 0,
           activeTasks,
+          chatId,
           // Extended fields
           persona: group.persona,
           requireTrigger: group.requireTrigger,
@@ -301,7 +307,10 @@ async function main(): Promise<void> {
 
   // Inject group registrar
   setGroupRegistrar((chatId: string, name: string) => {
-    const folder = name.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    // SECURITY: Ignore the user-provided name for folder generation.
+    // Enforce immutable Chat ID to prevent structural collisions.
+    const rawId = chatId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const folder = `chat_${rawId}`;
     registerGroup(chatId, {
       name,
       folder,
@@ -382,6 +391,49 @@ async function main(): Promise<void> {
 
   // Start plugin services
   await startPlugins();
+
+  // Wire MCP router deps (must happen after plugin start so bridges are populated)
+  {
+    const { setMcpRouterDeps } = await import('./server.js');
+    const {
+      getBridges,
+      addServer,
+      removeServer,
+      toggleServer,
+      loadMcpConfig,
+      saveMcpConfig,
+      McpBridge,
+      updateAllowedTools,
+      // @ts-ignore: bypass rootDir check for remote MCP plugin
+      getRawTools,
+    } = await import('../app/src/mcp/index.js' + '');
+    setMcpRouterDeps({
+      getBridges: () => getBridges() as Map<string, any>,
+      addServer: (config: unknown) => addServer(config as any, DATA_DIR),
+      removeServer: (id: string) => removeServer(id, DATA_DIR),
+      toggleServer: (id: string, enabled: boolean) =>
+        toggleServer(id, enabled, DATA_DIR),
+      updateAllowedTools: (id: string, tools: string[]) =>
+        updateAllowedTools(id, tools, DATA_DIR).then(() => {}),
+      getRawTools: (id: string) => getRawTools(id),
+      reconnectServer: async (id: string) => {
+        const config = loadMcpConfig(DATA_DIR);
+        const serverConfig = config.servers.find((s: any) => s.id === id);
+        if (!serverConfig) return;
+        const bridgeMap = getBridges();
+        const old = bridgeMap.get(id);
+        if (old) {
+          await old.disconnect();
+          bridgeMap.delete(id);
+        }
+        const nb = new McpBridge(serverConfig);
+        bridgeMap.set(id, nb);
+        await nb.connect();
+      },
+      loadConfig: () => loadMcpConfig(DATA_DIR) as any,
+      saveConfig: (config: any) => saveMcpConfig(DATA_DIR, config),
+    });
+  }
 
   // Connect to Telegram (starts bot + background services)
   await connectTelegram();

@@ -289,9 +289,15 @@ export async function connectTelegram(): Promise<void> {
       }
     }
 
-    // Process if registered (with message consolidation)
-    if (registeredGroups[chatId]) {
+    // Process if registered (with message consolidation), or if attempting to register
+    if (registeredGroups[chatId] || content.startsWith('/register')) {
       try {
+        if (!registeredGroups[chatId]) {
+          // Direct execution for unregistered groups sending /register
+          await processMessage(msg);
+          return;
+        }
+
         // Import consolidator
         const { messageConsolidator } =
           await import('./message-consolidator.js');

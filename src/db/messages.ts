@@ -374,8 +374,23 @@ export function formatExportAsMarkdown(exp: ConversationExport): string {
 export function getAllChatsPaginated(
   limit: number,
   offset: number,
+  excludeJids?: string[],
 ): { rows: ChatInfo[]; total: number } {
   const db = getDatabase();
+  
+  if (excludeJids && excludeJids.length > 0) {
+    const placeholders = excludeJids.map(() => '?').join(',');
+    const rows = db
+      .prepare(
+        `SELECT jid, name, last_message_time FROM chats WHERE jid NOT IN (${placeholders}) ORDER BY last_message_time DESC LIMIT ? OFFSET ?`,
+      )
+      .all(...excludeJids, limit, offset) as ChatInfo[];
+    const { total } = db
+      .prepare(`SELECT COUNT(*) as total FROM chats WHERE jid NOT IN (${placeholders})`)
+      .get(...excludeJids) as { total: number };
+    return { rows, total };
+  }
+
   const rows = db
     .prepare(
       'SELECT jid, name, last_message_time FROM chats ORDER BY last_message_time DESC LIMIT ? OFFSET ?',

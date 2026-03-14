@@ -53,7 +53,14 @@ export function createGroupsRouter(deps: GroupsRouterDeps): Router {
         const { limit, offset } = req.query as unknown as z.infer<
           typeof groupsPaginationQuery
         >;
-        const { rows, total } = getAllChatsPaginated(limit, offset);
+        
+        // Exclude all currently registered chats
+        const registered = deps.groupsProvider();
+        const excludeJids = registered
+          .map((g) => g.chatId)
+          .filter((id) => typeof id === 'string') as string[];
+
+        const { rows, total } = getAllChatsPaginated(limit, offset, excludeJids);
         res.json({
           data: rows,
           pagination: {

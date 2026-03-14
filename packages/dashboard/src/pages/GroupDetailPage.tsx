@@ -296,8 +296,8 @@ export function GroupDetailPage({ groupFolder, onBack }: GroupDetailPageProps) {
         );
     }
 
-    const avgResponseTime = group.usage.total_requests > 0
-        ? (group.usage.avg_duration_ms / 1000).toFixed(1) + 's'
+    const avgResponseTime = (group.usage?.total_requests || 0) > 0
+        ? ((group.usage?.avg_duration_ms || 0) / 1000).toFixed(1) + 's'
         : 'N/A';
 
     return (
@@ -326,10 +326,10 @@ export function GroupDetailPage({ groupFolder, onBack }: GroupDetailPageProps) {
 
             {/* Stats */}
             <StatsCards stats={[
-                { label: t('totalRequests'), value: group.usage.total_requests },
+                { label: t('totalRequests'), value: group.usage?.total_requests || 0 },
                 { label: t('avgResponse'), value: avgResponseTime },
-                { label: t('totalTokens'), value: (group.usage.total_prompt_tokens + group.usage.total_response_tokens).toLocaleString(locale) },
-                { label: t('messages'), value: group.messageCount },
+                { label: t('totalTokens'), value: ((group.usage?.total_prompt_tokens || 0) + (group.usage?.total_response_tokens || 0)).toLocaleString(locale) },
+                { label: t('messages'), value: group.messageCount || 0 },
             ]} />
 
             {/* Settings */}
