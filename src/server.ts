@@ -298,7 +298,7 @@ export function startDashboardServer() {
   // ================================================================
   // Static file serving (production dashboard)
   // ================================================================
-  const dashboardDist = path.resolve(process.cwd(), 'dashboard', 'dist');
+  const dashboardDist = path.resolve(process.cwd(), 'packages', 'dashboard', 'dist');
   if (fs.existsSync(dashboardDist)) {
     app.use(express.static(dashboardDist));
     // SPA fallback: serve index.html for all non-API routes
