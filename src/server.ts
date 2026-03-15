@@ -97,7 +97,17 @@ export function startDashboardServer() {
   httpServer = server;
 
   // Middleware
-  app.use(helmet());
+  app.use(helmet({
+    hsts: false,                    // No HSTS — server runs over plain HTTP on LAN
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        'upgrade-insecure-requests': null,  // Don't force HTTPS asset loads
+        'script-src': ["'self'", "'unsafe-inline'"],
+        'connect-src': ["'self'", 'ws:', 'wss:'],
+      },
+    },
+  }));
   app.use(
     cors({
       origin: (origin, callback) => {
