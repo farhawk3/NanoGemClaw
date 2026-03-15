@@ -114,10 +114,11 @@ export function startOAuthCallbackServer(): Promise<OAuthFlowResult> {
       rejectFn?.(err);
     });
 
-    // Listen on a random available port, localhost only.
-    // Using the 'listening' event avoids the race condition of a setTimeout
-    // that could fire before the server is actually bound.
-    server.listen(0, '127.0.0.1');
+    // Listen on a fixed port (GOOGLE_OAUTH_CALLBACK_PORT env var, default 8085)
+    // so that an SSH tunnel can be set up in advance:
+    //   ssh -L 8085:127.0.0.1:8085 dungeness
+    const callbackPort = parseInt(process.env.GOOGLE_OAUTH_CALLBACK_PORT || '8085', 10);
+    server.listen(callbackPort, '127.0.0.1');
   });
 }
 
