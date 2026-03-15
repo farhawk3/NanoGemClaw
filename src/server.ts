@@ -311,8 +311,11 @@ export function startDashboardServer() {
   const dashboardDist = path.resolve(process.cwd(), 'packages', 'dashboard', 'dist');
   if (fs.existsSync(dashboardDist)) {
     app.use(express.static(dashboardDist));
-    // SPA fallback: serve index.html for all non-API routes
-    app.get('{*path}', (_req, res) => {
+    // SPA fallback: serve index.html for all non-API routes.
+    // Must skip /api/ so plugin routes registered after startDashboardServer()
+    // are not intercepted before they can handle their requests.
+    app.get('{*path}', (req, res, next) => {
+      if (req.path.startsWith('/api/')) return next();
       res.sendFile(path.join(dashboardDist, 'index.html'));
     });
     logger.info({ path: dashboardDist }, 'Serving dashboard static files');
