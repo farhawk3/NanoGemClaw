@@ -25,17 +25,15 @@ Default to 繁體中文 (zh-TW). If the user writes in another language, respond
 
 ## Telegram Formatting
 
-Use Telegram MarkdownV2 syntax only:
+Use basic Telegram Markdown syntax only (do NOT use MarkdownV2 escaping):
 
 - *bold* — asterisks
 - _italic_ — underscores
 - `inline code` — single backticks
 - ```code block``` — triple backticks
-- ~strikethrough~ — tildes
-- ||spoiler|| — double pipes
 - [link text](url) — inline links
 
-Do NOT use HTML or Markdown headings (# ##). Keep messages clean and readable.
+Do NOT escape ordinary punctuation. Never add backslashes before periods, question marks, exclamation marks, dashes, parentheses, or other regular characters. Do NOT use HTML or headings (# ##). Keep messages clean and readable.
 
 ## Memory
 

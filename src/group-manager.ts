@@ -277,6 +277,59 @@ export function updateGroupName(chatId: string, newName: string): boolean {
 // Group Discovery
 // ============================================================================
 
+// ============================================================================
+// Group Folder Migration (one-time, idempotent)
+// ============================================================================
+
+/**
+ * One-time migration stub: new groups registered after commit 5d62606 already
+ * use chat_<chatId> folder naming. Existing groups keep their current folders.
+ */
+export function migrateGroupFoldersToChatId(_db: any): void {
+  logger.info('Group folder migration: skipped (existing folders preserved)');
+}
+
+// ============================================================================
+// Telegram Supergroup Migration
+// ============================================================================
+
+/**
+ * Transfer a group registration from one chatId to another.
+ * Called when Telegram upgrades a basic group to a supergroup, changing its chatId.
+ * The folder name, settings, and all other data are preserved — only the key changes.
+ * Safe to call multiple times (idempotent: no-op if oldChatId isn't registered).
+ */
+export function migrateGroupChatId(
+  oldChatId: string,
+  newChatId: string,
+): boolean {
+  const registeredGroups = getRegisteredGroups();
+  const group = registeredGroups[oldChatId];
+  if (!group) return false;
+  if (registeredGroups[newChatId]) {
+    // New chatId already registered — avoid overwriting a newer registration
+    logger.warn(
+      { oldChatId, newChatId, folder: group.folder },
+      'Migration skipped: new chatId already registered',
+    );
+    return false;
+  }
+  registeredGroups[newChatId] = group;
+  delete registeredGroups[oldChatId];
+  saveJson(path.join(DATA_DIR, 'registered_groups.json'), registeredGroups);
+  logger.info(
+    { oldChatId, newChatId, folder: group.folder, name: group.name },
+    'Group chatId migrated (basic group → supergroup)',
+  );
+  try {
+    getEventBus().emit('group:updated', {
+      groupFolder: group.folder,
+      changes: { chatId: newChatId },
+    });
+  } catch {}
+  return true;
+}
+
 export function getAvailableGroups(): AvailableGroup[] {
   const chats = getAllChats();
   const registeredGroups = getRegisteredGroups();
