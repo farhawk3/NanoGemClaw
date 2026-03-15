@@ -20,7 +20,7 @@
 
 import type { Content } from '@google/genai';
 
-import { FAST_PATH, getDefaultModel } from './config.js';
+import { FAST_PATH, getDefaultModel, TIMEZONE } from './config.js';
 import { getOrCreateCache } from './context-cache.js';
 import { isGeminiClientAvailable, streamGenerate } from './gemini-client.js';
 import {
@@ -261,7 +261,9 @@ async function runFastPathInner(
 
   try {
     // Build system instruction
-    let systemInstruction = input.systemPrompt || '';
+    const now = new Date();
+    const timeStr = now.toLocaleString('en-US', { timeZone: TIMEZONE, dateStyle: 'full', timeStyle: 'short' });
+    let systemInstruction = `[Current date and time: ${timeStr}]\n\n${input.systemPrompt || ''}`;
 
     // Add follow-up suggestions instruction if enabled
     if ((group as any).enableFollowUp !== false) {
