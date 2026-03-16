@@ -389,7 +389,7 @@ export function buildFunctionDeclarations(
           schedule_value: {
             type: 'STRING',
             description:
-              'Schedule value: cron expression (e.g. "0 9 * * *" for daily 9am), interval in ms (e.g. "3600000" for hourly), or ISO timestamp for once',
+              'Schedule value: cron expression (e.g. "0 9 * * *" for daily 9am), interval in ms (e.g. "3600000" for hourly), or local-time ISO timestamp for once (e.g. "2026-03-15T20:00:00" for 8 PM local time). IMPORTANT: For "once" type, do NOT append "Z" or any UTC offset — use plain local time so the server interprets it in the configured timezone.',
           },
           context_mode: {
             type: 'STRING',
